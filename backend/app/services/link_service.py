@@ -13,7 +13,7 @@ class SlugAlreadyExistsError(Exception):
 
 
 class LinkNotFoundError(Exception):
-    """Raised when a link cannot be found by id or slug."""
+    """Raised when a link cannot be found by id or slug for a user."""
 
 
 def serialize_link(link: Link) -> LinkRead:
@@ -29,13 +29,18 @@ def serialize_link(link: Link) -> LinkRead:
     )
 
 
-def list_links(db: Session) -> list[LinkRead]:
-    links = db.scalars(select(Link).order_by(Link.created_at.desc())).all()
+def list_links(db: Session, user_id: str) -> list[LinkRead]:
+    links = db.scalars(
+        select(Link)
+        .where(Link.user_id == user_id)
+        .order_by(Link.created_at.desc())
+    ).all()
     return [serialize_link(link) for link in links]
 
 
-def create_link(db: Session, payload: LinkCreate) -> LinkRead:
+def create_link(db: Session, payload: LinkCreate, user_id: str) -> LinkRead:
     link = Link(
+        user_id=user_id,
         app_name=payload.app_name,
         android_url=str(payload.android_url),
         ios_url=str(payload.ios_url),
@@ -51,17 +56,23 @@ def create_link(db: Session, payload: LinkCreate) -> LinkRead:
     return serialize_link(link)
 
 
-def get_link(db: Session, link_id: int) -> LinkRead:
-    link = db.get(Link, link_id)
+def _get_owned_link(db: Session, link_id: int, user_id: str) -> Link:
+    link = db.scalar(
+        select(Link).where(Link.id == link_id, Link.user_id == user_id)
+    )
     if link is None:
         raise LinkNotFoundError
-    return serialize_link(link)
+    return link
 
 
-def update_link(db: Session, link_id: int, payload: LinkUpdate) -> LinkRead:
-    link = db.get(Link, link_id)
-    if link is None:
-        raise LinkNotFoundError
+def get_link(db: Session, link_id: int, user_id: str) -> LinkRead:
+    return serialize_link(_get_owned_link(db, link_id, user_id))
+
+
+def update_link(
+    db: Session, link_id: int, user_id: str, payload: LinkUpdate
+) -> LinkRead:
+    link = _get_owned_link(db, link_id, user_id)
 
     changes = payload.model_dump(exclude_unset=True)
     for field, value in changes.items():
@@ -78,10 +89,8 @@ def update_link(db: Session, link_id: int, payload: LinkUpdate) -> LinkRead:
     return serialize_link(link)
 
 
-def delete_link(db: Session, link_id: int) -> None:
-    link = db.get(Link, link_id)
-    if link is None:
-        raise LinkNotFoundError
+def delete_link(db: Session, link_id: int, user_id: str) -> None:
+    link = _get_owned_link(db, link_id, user_id)
     db.delete(link)
     db.commit()
 

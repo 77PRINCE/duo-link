@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.db.database import get_db
+from app.schemas.auth import AuthUser
 from app.schemas.link import LinkCreate, LinkRead, LinkResolve, LinkUpdate
 from app.services import link_service
 from app.services.link_service import LinkNotFoundError, SlugAlreadyExistsError
@@ -10,9 +12,13 @@ router = APIRouter(prefix="/links", tags=["links"])
 
 
 @router.post("", response_model=LinkRead, status_code=status.HTTP_201_CREATED)
-def create_link(payload: LinkCreate, db: Session = Depends(get_db)) -> LinkRead:
+def create_link(
+    payload: LinkCreate,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+) -> LinkRead:
     try:
-        return link_service.create_link(db, payload)
+        return link_service.create_link(db, payload, current_user.id)
     except SlugAlreadyExistsError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -21,8 +27,11 @@ def create_link(payload: LinkCreate, db: Session = Depends(get_db)) -> LinkRead:
 
 
 @router.get("", response_model=list[LinkRead])
-def list_links(db: Session = Depends(get_db)) -> list[LinkRead]:
-    return link_service.list_links(db)
+def list_links(
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+) -> list[LinkRead]:
+    return link_service.list_links(db, current_user.id)
 
 
 @router.get("/resolve/{slug}", response_model=LinkResolve)
@@ -41,9 +50,13 @@ def resolve_link(
 
 
 @router.get("/{link_id}", response_model=LinkRead)
-def get_link(link_id: int, db: Session = Depends(get_db)) -> LinkRead:
+def get_link(
+    link_id: int,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+) -> LinkRead:
     try:
-        return link_service.get_link(db, link_id)
+        return link_service.get_link(db, link_id, current_user.id)
     except LinkNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -53,10 +66,13 @@ def get_link(link_id: int, db: Session = Depends(get_db)) -> LinkRead:
 
 @router.patch("/{link_id}", response_model=LinkRead)
 def update_link(
-    link_id: int, payload: LinkUpdate, db: Session = Depends(get_db)
+    link_id: int,
+    payload: LinkUpdate,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> LinkRead:
     try:
-        return link_service.update_link(db, link_id, payload)
+        return link_service.update_link(db, link_id, current_user.id, payload)
     except LinkNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -70,9 +86,13 @@ def update_link(
 
 
 @router.delete("/{link_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_link(link_id: int, db: Session = Depends(get_db)) -> None:
+def delete_link(
+    link_id: int,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+) -> None:
     try:
-        link_service.delete_link(db, link_id)
+        link_service.delete_link(db, link_id, current_user.id)
     except LinkNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

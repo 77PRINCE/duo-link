@@ -18,6 +18,12 @@ def test_health(client):
     assert response.json() == {"status": "healthy"}
 
 
+def test_readiness(client):
+    response = client.get("/health/ready")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready", "database": "ok"}
+
+
 def test_create_link(client, link_payload):
     response = client.post("/api/v1/links", json=link_payload)
     assert response.status_code == 201
@@ -149,3 +155,39 @@ def test_resolve_unsupported_platform(client, link_payload):
 def test_resolve_missing_slug_returns_404(client):
     response = client.get("/api/v1/links/resolve/does-not-exist")
     assert response.status_code == 404
+
+
+def test_links_require_authentication(anon_client, link_payload):
+    assert anon_client.get("/api/v1/links").status_code == 401
+    assert anon_client.post("/api/v1/links", json=link_payload).status_code == 401
+
+
+def test_resolve_is_public(anon_client):
+    response = anon_client.get("/api/v1/links/resolve/missing-slug")
+    assert response.status_code == 404
+
+
+def test_links_are_scoped_to_owner(client, auth_user, link_payload):
+    from app.schemas.auth import AuthUser
+
+    created = client.post("/api/v1/links", json=link_payload).json()
+
+    auth_user["current"] = AuthUser(id="other-user", email="other@example.com")
+
+    assert client.get("/api/v1/links").json() == []
+    assert client.get(f"/api/v1/links/{created['id']}").status_code == 404
+    assert (
+        client.patch(
+            f"/api/v1/links/{created['id']}", json={"app_name": "Hijacked"}
+        ).status_code
+        == 404
+    )
+    assert client.delete(f"/api/v1/links/{created['id']}").status_code == 404
+
+
+def test_auth_endpoints_require_configuration(anon_client):
+    response = anon_client.post(
+        "/api/v1/auth/login",
+        json={"email": "user@example.com", "password": "password123"},
+    )
+    assert response.status_code == 503

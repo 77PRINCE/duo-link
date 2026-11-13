@@ -14,6 +14,7 @@ class Link(Base):
     __tablename__ = "links"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(String(36), index=True, nullable=True)
     app_name: Mapped[str] = mapped_column(String(120), nullable=False)
     android_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     ios_url: Mapped[str] = mapped_column(String(2048), nullable=False)
