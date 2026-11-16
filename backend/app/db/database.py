@@ -2,6 +2,7 @@ import logging
 from collections.abc import Generator
 
 from sqlalchemy import Connection, create_engine, inspect, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import settings
@@ -85,10 +86,22 @@ def _initialize_schema(connection: Connection) -> None:
 
 
 def init_db() -> None:
-    with engine.begin() as connection:
-        if connection.dialect.name == "postgresql":
-            connection.execute(
-                text("SELECT pg_advisory_xact_lock(:key)"),
-                {"key": _INIT_LOCK_KEY},
-            )
-        _initialize_schema(connection)
+    try:
+        with engine.begin() as connection:
+            if connection.dialect.name == "postgresql":
+                connection.execute(
+                    text("SELECT pg_advisory_xact_lock(:key)"),
+                    {"key": _INIT_LOCK_KEY},
+                )
+            _initialize_schema(connection)
+    except OperationalError as exc:
+        url = settings.database_url
+        if "db." in url and ".supabase.co" in url:
+            raise RuntimeError(
+                "Could not connect to the database. Supabase direct connection "
+                "URLs (db.<ref>.supabase.co) are IPv6-only and often unreachable "
+                "from platforms like Render. Set DATABASE_URL to the Supabase "
+                "Session pooler URI "
+                "(postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require)."
+            ) from exc
+        raise
