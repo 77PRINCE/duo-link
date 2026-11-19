@@ -84,23 +84,23 @@ export function AuthCard() {
 
   return (
     <section
-      className="w-full max-w-md rounded-2xl border border-white/15 bg-white/10 p-8 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.8)] backdrop-blur-xl"
+      className="w-full max-w-sm rounded-2xl border border-white/15 bg-slate-950/55 p-5 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.8)] backdrop-blur-xl sm:p-6"
       aria-label="Sign in"
     >
-      <div className="mb-8 text-center">
-        <h2 className="text-lg font-semibold text-white">Continue with</h2>
-        <p className="mt-1 text-sm text-white/60">
-          Choose a provider to sign in securely
+      <div className="mb-5 text-center">
+        <h2 className="text-base font-semibold text-white">Create your free account</h2>
+        <p className="mt-1 text-sm text-white/65">
+          Start sharing one link for both app stores.
         </p>
       </div>
 
       {/* Hick's Law: exactly two choices. Fitts's Law: large, full-width targets. */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <button
           type="button"
           onClick={() => handleOAuth("google")}
           disabled={loading !== null}
-          className="group inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-white/20 bg-white text-sm font-medium text-gray-900 transition hover:shadow-[0_0_0_3px_rgba(255,255,255,0.15),0_8px_30px_rgba(255,255,255,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+          className="group inline-flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-white/20 bg-white text-sm font-semibold text-gray-900 transition hover:shadow-[0_0_0_3px_rgba(255,255,255,0.15),0_8px_30px_rgba(255,255,255,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading === "google" ? <Spinner /> : <GoogleIcon />}
           <span>Continue with Google</span>
@@ -110,7 +110,7 @@ export function AuthCard() {
           type="button"
           onClick={() => handleOAuth("github")}
           disabled={loading !== null}
-          className="group inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-white/20 bg-[#171515] text-sm font-medium text-white transition hover:shadow-[0_0_0_3px_rgba(255,255,255,0.12),0_8px_30px_rgba(0,0,0,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+          className="group inline-flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-white/20 bg-[#171515] text-sm font-semibold text-white transition hover:shadow-[0_0_0_3px_rgba(255,255,255,0.12),0_8px_30px_rgba(0,0,0,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading === "github" ? <Spinner /> : <GitHubIcon />}
           <span>Continue with GitHub</span>
