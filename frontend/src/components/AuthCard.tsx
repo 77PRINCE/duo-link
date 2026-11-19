@@ -60,22 +60,37 @@ export function AuthCard() {
   const handleOAuth = async (provider: Provider) => {
     setLocalError(null);
     setLoading(provider);
-    const supabase = createClient();
 
-    // Initiate Supabase OAuth: Supabase brokers the provider flow and
-    // redirects back to our app callback with a one-time code.
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+    try {
+      const supabase = createClient();
 
-    if (error) {
-      setLocalError(error.message);
+      // Initiate Supabase OAuth: Supabase brokers the provider flow and
+      // redirects back to our app callback with a one-time code. We handle the
+      // navigation ourselves so failures surface instead of spinning forever.
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+      if (!data.url) {
+        throw new Error("Supabase did not return an OAuth redirect URL.");
+      }
+
+      window.location.assign(data.url);
+    } catch (error) {
+      setLocalError(
+        error instanceof Error
+          ? error.message
+          : "Sign-in could not be started. Please try again.",
+      );
       setLoading(null);
     }
-    // On success the browser redirects away; keep loading state active.
   };
 
   const errorMessage =

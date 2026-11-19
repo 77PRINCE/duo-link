@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
+import { useAuth } from "@/components/AuthProvider";
 import LinkCard from "@/components/LinkCard";
 import LinkForm from "@/components/LinkForm";
 import {
@@ -15,22 +17,27 @@ import {
   type SmartLink,
 } from "@/lib/api";
 
-type DashboardProps = {
-  initialLinks: SmartLink[];
-  initialError: string | null;
-};
-
 function messageFor(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.message : fallback;
 }
 
-export default function Dashboard({
-  initialLinks,
-  initialError,
-}: DashboardProps) {
-  const [links, setLinks] = useState<SmartLink[]>(initialLinks);
+function FullScreenMessage({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-full items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
+      <p className="text-sm text-slate-600 dark:text-slate-400">{children}</p>
+    </div>
+  );
+}
+
+export default function Dashboard() {
+  const router = useRouter();
+  const { user, ready, logout } = useAuth();
+  const userId = user?.id ?? null;
+
+  const [links, setLinks] = useState<SmartLink[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(initialError);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -43,6 +50,38 @@ export default function Dashboard({
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (ready && !userId) {
+      router.replace("/login");
+    }
+  }, [ready, userId, router]);
+
+  useEffect(() => {
+    if (!ready || !userId) {
+      return;
+    }
+
+    let active = true;
+    listLinks()
+      .then((data) => {
+        if (!active) return;
+        setLinks(data);
+        setLoadError(null);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setLoadError(messageFor(error, "Unable to load your links."));
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [ready, userId]);
+
   const load = useCallback(async () => {
     try {
       const data = await listLinks();
@@ -52,6 +91,7 @@ export default function Dashboard({
       setLoadError(messageFor(error, "Unable to load your links."));
     } finally {
       setRefreshing(false);
+      setLoading(false);
     }
   }, []);
 
@@ -116,6 +156,16 @@ export default function Dashboard({
     }
   }
 
+  if (!ready) {
+    return <FullScreenMessage>Loading your dashboard...</FullScreenMessage>;
+  }
+
+  if (!user) {
+    return (
+      <FullScreenMessage>Redirecting you to sign in...</FullScreenMessage>
+    );
+  }
+
   return (
     <div className="min-h-full bg-slate-50 dark:bg-slate-950">
       <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -129,15 +179,18 @@ export default function Dashboard({
             </span>
           </Link>
           <div className="flex items-center gap-3">
-            <span className="hidden rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 sm:inline dark:bg-amber-950 dark:text-amber-300">
-              Demo mode
-            </span>
-            <Link
-              href="/login"
-              className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            {user.email && (
+              <span className="hidden text-sm text-slate-500 sm:inline dark:text-slate-400">
+                {user.email}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Sign out
-            </Link>
+            </button>
           </div>
         </div>
       </header>
@@ -209,7 +262,16 @@ export default function Dashboard({
           </section>
 
           <section>
-            {links.length === 0 ? (
+            {loading ? (
+              <div className="space-y-4">
+                {[0, 1, 2].map((item) => (
+                  <div
+                    key={item}
+                    className="h-44 animate-pulse rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+                  />
+                ))}
+              </div>
+            ) : links.length === 0 ? (
               loadError ? null : (
                 <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">
                   <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">

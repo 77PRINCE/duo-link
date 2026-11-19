@@ -4,21 +4,63 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
+import { useAuth } from "@/components/AuthProvider";
+import { ApiError } from "@/lib/api";
+
 type AuthFormProps = {
   mode: "login" | "register";
 };
 
 export default function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
+  const { login, register } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   const isRegister = mode === "register";
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    router.push("/dashboard");
+    setError(null);
+    setInfo(null);
+
+    if (!email.trim() || !password) {
+      setError("Enter your email and password.");
+      return;
+    }
+    if (isRegister && password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      if (isRegister) {
+        const result = await register(email.trim(), password, name.trim());
+        if (result.needs_confirmation) {
+          setInfo(
+            "Account created. Check your email to confirm it, then sign in.",
+          );
+          return;
+        }
+        router.push("/dashboard");
+      } else {
+        await login(email.trim(), password);
+        router.push("/dashboard");
+      }
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Something went wrong. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const inputClass =
@@ -46,12 +88,24 @@ export default function AuthForm({ mode }: AuthFormProps) {
               : "Sign in to manage your smart links."}
           </p>
 
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-            Demo interface: authentication is not implemented yet. Submitting
-            will take you straight to the dashboard.
-          </div>
+          {error && (
+            <div
+              role="alert"
+              className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
+            >
+              {error}
+            </div>
+          )}
+          {info && (
+            <div
+              role="status"
+              className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+            >
+              {info}
+            </div>
+          )}
 
-          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          <form onSubmit={handleSubmit} className="mt-5 space-y-4" noValidate>
             {isRegister && (
               <div>
                 <label
@@ -86,6 +140,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
                 placeholder="you@example.com"
                 className={inputClass}
                 autoComplete="email"
+                required
               />
             </div>
 
@@ -101,17 +156,26 @@ export default function AuthForm({ mode }: AuthFormProps) {
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="••••••••"
+                placeholder="At least 8 characters"
                 className={inputClass}
                 autoComplete={isRegister ? "new-password" : "current-password"}
+                minLength={isRegister ? 8 : undefined}
+                required
               />
             </div>
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
+              disabled={submitting}
+              className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isRegister ? "Create account" : "Sign in"}
+              {submitting
+                ? isRegister
+                  ? "Creating account..."
+                  : "Signing in..."
+                : isRegister
+                  ? "Create account"
+                  : "Sign in"}
             </button>
           </form>
 
